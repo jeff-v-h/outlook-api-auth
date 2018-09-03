@@ -94,5 +94,17 @@
     </div>
 
   </div>
+  
+  <!-- Handlebars template for message list -->
+  <script id="msg-list-template" type="text/x-handlebars-template">
+    {{#each messages}}
+    <div class="list-group-item">
+      <h3 id="msg-from" class="list-group-item-">{{this.from.emailAddress.name}}</h3>
+      <h4 id="msg-subject" class="list-group-item-heading">{{this.subject}}</h4>
+      <p id="msg-received" class="list-group-item-heading text-muted"><em>Received: {{formatDate this.receivedDateTime}}</em></p>
+      <p id="msg-preview" class="list-group-item-text text-muted"><em>{{this.bodyPreview}}</em></p>
+    </div>
+    {{/each}}
+  </script>
 </body>
 </html>

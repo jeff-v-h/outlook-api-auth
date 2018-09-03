@@ -145,7 +145,16 @@ $(function() {
     $('#inbox').show();
   
     getUserInboxMessages(function(messages, error){
-      $('#inbox-status').text(JSON.stringify(messages));
+      if (error) {
+        renderError('getUserInboxMessages failed', error);
+      } else {
+        $('#inbox-status').text('Here are the 10 most recent messages in your inbox.');
+        var templateSource = $('#msg-list-template').html();
+        var template = Handlebars.compile(templateSource);
+      
+        var msgList = template({messages: messages});
+        $('#message-list').append(msgList);
+      }
     });
   }
 
@@ -387,5 +396,13 @@ $(function() {
     // Clear session
     sessionStorage.clear();
   }
+
+  Handlebars.registerHelper("formatDate", function(datetime){
+    // Dates from API look like:
+    // 2016-06-27T14:06:13Z
+  
+    var date = new Date(datetime);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  });
 
 });
