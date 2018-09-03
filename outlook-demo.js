@@ -49,6 +49,12 @@ $(function() {
       },
 
       // Signout
+      '#signout': function () {
+        clearUserState();
+      
+        // Redirect to home page
+        window.location.hash = '#';
+      },
 
       // Error display
       '#error': function () {
@@ -165,8 +171,84 @@ $(function() {
   
     sessionStorage.idToken = tokenresponse.id_token;
   
-    // Redirect to home page
-    window.location.hash = '#';   
+    validateIdToken(function(isValid) {
+      if (isValid) {
+        // Re-render token to handle refresh
+        renderTokens();
+    
+        // Redirect to home page
+        window.location.hash = '#';
+      } else {
+        clearUserState();
+        // Report error
+        window.location.hash = '#error=Invalid+ID+token&error_description=ID+token+failed+validation,+please+try+signing+in+again.';
+      }
+    });
+  }
+
+  function validateIdToken(callback) {
+    // Per Azure docs (and OpenID spec), we MUST validate
+    // the ID token before using it. However, full validation
+    // of the signature currently requires a server-side component
+    // to fetch the public signing keys from Azure. This sample will
+    // skip that part (technically violating the OpenID spec) and do
+    // minimal validation
+  
+    if (null == sessionStorage.idToken || sessionStorage.idToken.length <= 0) {
+      callback(false);
+    }
+  
+    // JWT is in three parts seperated by '.'
+    var tokenParts = sessionStorage.idToken.split('.');
+    if (tokenParts.length != 3){
+      callback(false);
+    }
+  
+    // Parse the token parts
+    var header = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenParts[0]));
+    var payload = KJUR.jws.JWS.readSafeJSONString(b64utoutf8(tokenParts[1]));
+  
+    // Check the nonce
+    if (payload.nonce != sessionStorage.authNonce) {
+      sessionStorage.authNonce = '';
+      callback(false);
+    }
+  
+    sessionStorage.authNonce = '';
+  
+    // Check the audience
+    if (payload.aud != appId) {
+      callback(false);
+    }
+  
+    // Check the issuer
+    // Should be https://login.microsoftonline.com/{tenantid}/v2.0
+    if (payload.iss !== 'https://login.microsoftonline.com/' + payload.tid + '/v2.0') {
+      callback(false);
+    }
+  
+    // Check the valid dates
+    var now = new Date();
+    // To allow for slight inconsistencies in system clocks, adjust by 5 minutes
+    var notBefore = new Date((payload.nbf - 300) * 1000);
+    var expires = new Date((payload.exp + 300) * 1000);
+    if (now < notBefore || now > expires) {
+      callback(false);
+    }
+  
+    // Now that we've passed our checks, save the bits of data
+    // we need from the token.
+  
+    sessionStorage.userDisplayName = payload.name;
+    sessionStorage.userSigninName = payload.preferred_username;
+  
+    // Per the docs at:
+    // https://azure.microsoft.com/en-us/documentation/articles/active-directory-v2-protocols-implicit/#send-the-sign-in-request
+    // Check if this is a consumer account so we can set domain_hint properly
+    sessionStorage.userDomainType = 
+      payload.tid === '9188040d-6c67-4c5b-b112-36a304b66dad' ? 'consumers' : 'organizations';
+  
+    callback(true);
   }
 
   // OUTLOOK API FUNCTIONS =======================
@@ -206,6 +288,11 @@ $(function() {
     } else {
       return '';
     }
+  }
+
+  function clearUserState() {
+    // Clear session
+    sessionStorage.clear();
   }
 
 });
