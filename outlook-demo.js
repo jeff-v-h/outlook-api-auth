@@ -70,6 +70,14 @@ $(function() {
       },
 
       // Display inbox
+      '#inbox': function () {
+        if (isAuthenticated) {
+          renderInbox();  
+        } else {
+          // Redirect to home page
+          window.location.hash = '#';
+        }
+      },
 
       // Shown if browser doesn't support session storage
       '#unsupportedbrowser': function () {
@@ -128,6 +136,26 @@ $(function() {
       $('#connect-button').attr('href', buildAuthUrl());
       $('#signin-prompt').show();
     }
+  }
+
+  function renderInbox() {
+    setActiveNav('#inbox-nav');
+    $('#inbox-status').text('Loading...');
+    $('#message-list').empty();
+    $('#inbox').show();
+  
+    getUserInboxMessages(function(messages, error){
+      if (error) {
+        renderError('getUserInboxMessages failed', error);
+      } else {
+        $('#inbox-status').text('Here are the 10 most recent messages in your inbox.');
+        var templateSource = $('#msg-list-template').html();
+        var template = Handlebars.compile(templateSource);
+      
+        var msgList = template({messages: messages});
+        $('#message-list').append(msgList);
+      }
+    });
   }
 
   // OAUTH FUNCTIONS =============================
@@ -296,6 +324,36 @@ $(function() {
   }
 
   // OUTLOOK API FUNCTIONS =======================
+  function getUserInboxMessages(callback) {
+    getAccessToken(function(accessToken) {
+      if (accessToken) {
+        // Create a Graph client
+        var client = MicrosoftGraph.Client.init({
+          authProvider: (done) => {
+            // Just return the token
+            done(null, accessToken);
+          }
+        });
+  
+        // Get the 10 newest messages
+        client
+          .api('/me/mailfolders/inbox/messages')
+          .top(10)
+          .select('subject,from,receivedDateTime,bodyPreview')
+          .orderby('receivedDateTime DESC')
+          .get((err, res) => {
+            if (err) {
+              callback(null, err);
+            } else {
+              callback(res.value);
+            }
+          });
+      } else {
+        var error = { responseText: 'Could not retrieve access token' };
+        callback(null, error);
+      }
+    });
+  }
 
   // HELPER FUNCTIONS ============================
   function guid() {
@@ -338,5 +396,13 @@ $(function() {
     // Clear session
     sessionStorage.clear();
   }
+
+  Handlebars.registerHelper("formatDate", function(datetime){
+    // Dates from API look like:
+    // 2016-06-27T14:06:13Z
+  
+    var date = new Date(datetime);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  });
 
 });
