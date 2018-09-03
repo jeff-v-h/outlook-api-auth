@@ -33,6 +33,7 @@
           <li id='home-nav'><a href="#">Home</a></li>
           <li id='inbox-nav'><a href="#inbox">Inbox</a></li>
           <li id='calendar-nav'><a href="#calendar">Calendar</a></li>
+          <li id='contacts-nav'><a href="#contacts">Contacts</a></li>
         </ul>
         <ul class="nav navbar-nav navbar-right authed-nav">
           <li><a href="#signout">Sign out</a></li>
@@ -93,6 +94,17 @@
       </div>
     </div>
 
+    <!-- contacts display -->
+    <div id="contacts" class="page panel panel-default">
+      <div class="panel-heading">
+        <h1 class="panel-title">Contacts</h1>
+      </div>
+      <div id="contacts-status" class="panel-body">
+      </div>
+      <div class="list-group" id="contact-list">
+      </div>
+    </div>
+
     <!-- token display -->
     <div id="token-display" class="page panel panel-default">
       <div class="panel-body">
@@ -129,5 +141,16 @@
     </div>
     {{/each}}
   </script>
+
+  <!-- Handlebars template for contact list -->
+  <script id="contact-list-template" type="text/x-handlebars-template">
+    {{#each contacts}}
+    <div class="list-group-item">
+      <h4 id="contact-name" class="list-group-item-heading">{{this.givenName}} {{this.surname}}</h4>
+      <p id="contact-email" class="list-group-item-heading">Email: {{this.emailAddresses.0.address}}</p>
+    </div>
+    {{/each}}
+  </script>
+  
 </body>
 </html>
