@@ -3,7 +3,7 @@ $(function() {
   var authEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?';
   var redirectUri = 'http://localhost:8080';
   var appId = 'c534cbac-33e7-40cc-b774-540b2f8d8520';
-  var scopes = 'openid profile User.Read Mail.Read';
+  var scopes = 'openid profile User.Read Mail.Read Calendars.Read';
 
   // Check for browser support for sessionStorage
   if (typeof(Storage) === 'undefined') {
@@ -73,6 +73,16 @@ $(function() {
       '#inbox': function () {
         if (isAuthenticated) {
           renderInbox();  
+        } else {
+          // Redirect to home page
+          window.location.hash = '#';
+        }
+      },
+
+      // Display calendar
+      '#calendar': function () {
+        if (isAuthenticated) {
+          renderCalendar();  
         } else {
           // Redirect to home page
           window.location.hash = '#';
@@ -154,6 +164,26 @@ $(function() {
       
         var msgList = template({messages: messages});
         $('#message-list').append(msgList);
+      }
+    });
+  }
+
+  function renderCalendar() {
+    setActiveNav('#calendar-nav');
+    $('#calendar-status').text('Loading...');
+    $('#event-list').empty();
+    $('#calendar').show();
+  
+    getUserEvents(function(events, error){
+      if (error) {
+        renderError('getUserEvents failed', error);
+      } else {
+        $('#calendar-status').text('Here are the 10 most recently created events on your calendar.');
+        var templateSource = $('#event-list-template').html();
+        var template = Handlebars.compile(templateSource);
+  
+        var eventList = template({events: events});
+        $('#event-list').append(eventList);
       }
     });
   }
@@ -341,6 +371,38 @@ $(function() {
           .top(10)
           .select('subject,from,receivedDateTime,bodyPreview')
           .orderby('receivedDateTime DESC')
+          .get((err, res) => {
+            if (err) {
+              callback(null, err);
+            } else {
+              callback(res.value);
+            }
+          });
+      } else {
+        var error = { responseText: 'Could not retrieve access token' };
+        callback(null, error);
+      }
+    });
+  }
+
+  // CALENDAR API
+  function getUserEvents(callback) {
+    getAccessToken(function(accessToken) {
+      if (accessToken) {
+        // Create a Graph client
+        var client = MicrosoftGraph.Client.init({
+          authProvider: (done) => {
+            // Just return the token
+            done(null, accessToken);
+          }
+        });
+  
+        // Get the 10 newest events
+        client
+          .api('/me/events')
+          .top(10)
+          .select('subject,start,end,createdDateTime')
+          .orderby('createdDateTime DESC')
           .get((err, res) => {
             if (err) {
               callback(null, err);
