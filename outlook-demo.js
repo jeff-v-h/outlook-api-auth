@@ -59,7 +59,14 @@ $(function() {
       // Error display
       '#error': function () {
         var errorresponse = parseHashParams(hash);
-        renderError(errorresponse.error, errorresponse.error_description);
+        if (errorresponse.error === 'login_required' ||
+            errorresponse.error === 'interaction_required') {
+          // For these errors redirect the browser to the login
+          // page.
+          window.location = buildAuthUrl();
+        } else {
+          renderError(errorresponse.error, errorresponse.error_description);
+        }
       },
 
       // Display inbox
@@ -143,6 +150,9 @@ $(function() {
   }
 
   function handleTokenResponse(hash) {
+    // If this was a silent request remove the iframe
+    $('#auth-iframe').remove();
+
     // clear tokens
     sessionStorage.removeItem('accessToken');
     sessionStorage.removeItem('idToken');
@@ -249,6 +259,40 @@ $(function() {
       payload.tid === '9188040d-6c67-4c5b-b112-36a304b66dad' ? 'consumers' : 'organizations';
   
     callback(true);
+  }
+
+  function makeSilentTokenRequest(callback) {
+    // Build up a hidden iframe
+    var iframe = $('<iframe/>');
+    iframe.attr('id', 'auth-iframe');
+    iframe.attr('name', 'auth-iframe');
+    iframe.appendTo('body');
+    iframe.hide();
+  
+    iframe.load(function() {
+      callback(sessionStorage.accessToken);
+    });
+  
+    iframe.attr('src', buildAuthUrl() + '&prompt=none&domain_hint=' + 
+      sessionStorage.userDomainType + '&login_hint=' + 
+      sessionStorage.userSigninName);
+  }
+
+  // Helper method to validate token and refresh
+  // if needed
+  function getAccessToken(callback) {
+    var now = new Date().getTime();
+    var isExpired = now > parseInt(sessionStorage.tokenExpires);
+    // Do we have a token already?
+    if (sessionStorage.accessToken && !isExpired) {
+      // Just return what we have
+      if (callback) {
+        callback(sessionStorage.accessToken);
+      }
+    } else {
+      // Attempt to do a hidden iframe request
+      makeSilentTokenRequest(callback);
+    }
   }
 
   // OUTLOOK API FUNCTIONS =======================
