@@ -3,7 +3,7 @@ $(function() {
   var authEndpoint = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?';
   var redirectUri = 'http://localhost:8080';
   var appId = 'c534cbac-33e7-40cc-b774-540b2f8d8520';
-  var scopes = 'openid profile User.Read Mail.Read Calendars.Read';
+  var scopes = 'openid profile User.Read Mail.Read Calendars.Read Contacts.Read';
 
   // Check for browser support for sessionStorage
   if (typeof(Storage) === 'undefined') {
@@ -83,6 +83,16 @@ $(function() {
       '#calendar': function () {
         if (isAuthenticated) {
           renderCalendar();  
+        } else {
+          // Redirect to home page
+          window.location.hash = '#';
+        }
+      },
+
+      // Display contacts
+      '#contacts': function () {
+        if (isAuthenticated) {
+          renderContacts();  
         } else {
           // Redirect to home page
           window.location.hash = '#';
@@ -184,6 +194,26 @@ $(function() {
   
         var eventList = template({events: events});
         $('#event-list').append(eventList);
+      }
+    });
+  }
+
+  function renderContacts() {
+    setActiveNav('#contacts-nav');
+    $('#contacts-status').text('Loading...');
+    $('#contact-list').empty();
+    $('#contacts').show();
+  
+    getUserContacts(function(contacts, error){
+      if (error) {
+        renderError('getUserContacts failed', error);
+      } else {
+        $('#contacts-status').text('Here are your first 10 contacts.');
+        var templateSource = $('#contact-list-template').html();
+        var template = Handlebars.compile(templateSource);
+  
+        var contactList = template({contacts: contacts});
+        $('#contact-list').append(contactList);
       }
     });
   }
@@ -354,6 +384,7 @@ $(function() {
   }
 
   // OUTLOOK API FUNCTIONS =======================
+  // MAIL API
   function getUserInboxMessages(callback) {
     getAccessToken(function(accessToken) {
       if (accessToken) {
@@ -403,6 +434,39 @@ $(function() {
           .top(10)
           .select('subject,start,end,createdDateTime')
           .orderby('createdDateTime DESC')
+          .get((err, res) => {
+            if (err) {
+              callback(null, err);
+            } else {
+              callback(res.value);
+            }
+          });
+      } else {
+        var error = { responseText: 'Could not retrieve access token' };
+        callback(null, error);
+      }
+    });
+  }
+
+  // CONTACTS API
+  function getUserContacts(callback) {
+    getAccessToken(function(accessToken) {
+      if (accessToken) {
+        // Create a Graph client
+        var client = MicrosoftGraph.Client.init({
+          authProvider: (done) => {
+            // Just return the token
+            done(null, accessToken);
+          }
+        });
+  
+        // Get the first 10 contacts in alphabetical order
+        // by given name
+        client
+          .api('/me/contacts')
+          .top(10)
+          .select('givenName,surname,emailAddresses')
+          .orderby('givenName ASC')
           .get((err, res) => {
             if (err) {
               callback(null, err);
